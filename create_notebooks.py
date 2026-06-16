@@ -779,34 +779,64 @@ LABELS_COMP = {0: 'In situ', 1: 'Mergers completados', 2: 'Stripped (sobrev.)'}
 print(f"Catálogo cargado: {n_cl} cúmulos")
 """),
 
-md("""## §2.3 – Catálogos de ensamblaje estelar
+md("""## §2.3 – Catálogos de ensamblaje estelar (Rodriguez-Gomez+2016)
 
 Ruta en el cluster: `P.SA_FILE`
-(Archivo: `stellar_assembly_TNG100-1_099.hdf5`)
 
-Estructura esperada:
+**Estructura real del catálogo** (estadísticas AGREGADAS por subhalo, NO por partícula):
 ```
-ParticleID       : ID único de cada partícula estelar (para cruzar con el snapshot)
-AssemblyChannel  : 0=in situ, 1=merger completado, 2=stripped
-ProgGalaxyMass   : masa máxima histórica del progenitor [1e10 M☉/h]
-ProgGalaxyID     : ID del subhalo progenitor
+f['Snapshot_99']['StellarMassInSitu'][sub_idx]               # masa formada in situ
+f['Snapshot_99']['StellarMassExSitu'][sub_idx]               # masa total ex situ
+f['Snapshot_99']['StellarMassFromCompletedMergers'][sub_idx] # de fusiones terminadas
+f['Snapshot_99']['StellarMassFromCompletedMergersMajor'][sub_idx]      # solo fusiones mayores
+f['Snapshot_99']['StellarMassFromCompletedMergersMajorMinor'][sub_idx] # mayor + menores
+f['Snapshot_99']['StellarMassFromOngoingMergers'][sub_idx]   # de satélites aún existentes
+f['Snapshot_99']['StellarMassFromOngoingMergersMajor'][sub_idx]
+f['Snapshot_99']['StellarMassTotal'][sub_idx]                # masa total (check)
 ```
+Unidades: 1×10¹⁰ M☉/h (como los datos internos de TNG).
+
+**Nota importante**: este catálogo da fracciones totales del subhalo central (= BCG+ICL juntos
+en la definición SUBFIND). Para separar componentes por región espacial (BCG vs ICL)
+sería necesario un catálogo SA por-partícula, que no está disponible.
 """),
 
-code("""with h5py.File(P.SA_FILE, 'r') as f:
-    print("Campos disponibles:", list(f.keys()))
-    sa_pid      = f['ParticleID'][:]
-    sa_channel  = f['AssemblyChannel'][:]
-    sa_progmass = f['ProgGalaxyMass'][:] * P.UM   # M☉
-    sa_progid   = f['ProgGalaxyID'][:]
+code("""# Carga estadísticas SA agregadas por subhalo (un valor por subhalo en snap 99)
+with h5py.File(P.SA_FILE, 'r') as f:
+    s99 = f['Snapshot_99']
+    sa_insitu    = s99['StellarMassInSitu'][:]                    * P.UM
+    sa_exsitu    = s99['StellarMassExSitu'][:]                    * P.UM
+    sa_mergers   = s99['StellarMassFromCompletedMergers'][:]      * P.UM
+    sa_maj_comp  = s99['StellarMassFromCompletedMergersMajor'][:] * P.UM
+    sa_ongoing   = s99['StellarMassFromOngoingMergers'][:]        * P.UM
+    sa_maj_ong   = s99['StellarMassFromOngoingMergersMajor'][:]   * P.UM
+    sa_total     = s99['StellarMassTotal'][:]                     * P.UM
 
-# Índice de búsqueda rápida id → posición en el catálogo SA
-sa_map = dict(zip(sa_pid, np.arange(len(sa_pid))))
+print(f"N subhalos en catálogo SA: {len(sa_total):,}")
+# Verificar con primer BCG
+i0 = 0; si = bcg_sub_idx[i0]
+print(f"\\nBCG #0 (sub_idx={si}):")
+print(f"  M_insitu  = {sa_insitu[si]:.3e} M☉   f = {sa_insitu[si]/sa_total[si]:.3f}")
+print(f"  M_exsitu  = {sa_exsitu[si]:.3e} M☉   f = {sa_exsitu[si]/sa_total[si]:.3f}")
+print(f"  M_mergers = {sa_mergers[si]:.3e} M☉  f = {sa_mergers[si]/sa_total[si]:.3f}")
+print(f"  M_ongoing = {sa_ongoing[si]:.3e} M☉  f = {sa_ongoing[si]/sa_total[si]:.3f}")
+print(f"  M_total   = {sa_total[si]:.3e} M☉")
 
-print(f"\\nTotal partículas SA : {len(sa_pid):,}")
-print(f"  In situ (0) : {(sa_channel==0).sum():,}")
-print(f"  Mergers (1) : {(sa_channel==1).sum():,}")
-print(f"  Stripped(2) : {(sa_channel==2).sum():,}")
+# Fracciones para todos los BCGs
+sa_tot_bcg = sa_total[bcg_sub_idx]
+mask_ok    = sa_tot_bcg > 0
+f_insitu  = np.where(mask_ok, sa_insitu[bcg_sub_idx]   / sa_tot_bcg, np.nan)
+f_exsitu  = np.where(mask_ok, sa_exsitu[bcg_sub_idx]   / sa_tot_bcg, np.nan)
+f_mergers = np.where(mask_ok, sa_mergers[bcg_sub_idx]  / sa_tot_bcg, np.nan)
+f_ongoing = np.where(mask_ok, sa_ongoing[bcg_sub_idx]  / sa_tot_bcg, np.nan)
+f_maj_comp= np.where(mask_ok, sa_maj_comp[bcg_sub_idx] / sa_tot_bcg, np.nan)
+f_maj_ong = np.where(mask_ok, sa_maj_ong[bcg_sub_idx]  / sa_tot_bcg, np.nan)
+
+print(f"\\nMedianas (BCG+ICL total):")
+print(f"  f_insitu  = {np.nanmedian(f_insitu):.3f}")
+print(f"  f_mergers = {np.nanmedian(f_mergers):.3f}  (completados)")
+print(f"  f_ongoing = {np.nanmedian(f_ongoing):.3f}  (stripped / sobrevivientes)")
+print(f"  f_exsitu  = {np.nanmedian(f_exsitu):.3f}  (total ex-situ)")
 """),
 
 md("## Función principal: cargar y clasificar partículas de un cúmulo"),
@@ -868,123 +898,141 @@ def hmr(r, m):
 
 def load_cluster_stars(sub_id, cen_pos, header=Header):
     \"\"\"
-    Carga todas las partículas estelares del subhalo central,
-    las rota, separa BCG/ICL y las clasifica en los 3 componentes.
-    Devuelve un diccionario con todos los arrays necesarios.
+    Carga partículas estelares del subhalo central, las rota y separa BCG/ICL.
+    No requiere catálogo SA por-partícula.
     \"\"\"
-    fields = ['Coordinates','Masses','ParticleIDs',
+    fields = ['Coordinates','Masses',
               'GFM_StellarPhotometrics','GFM_Metallicity','GFM_StellarFormationTime']
     st = il.snapshot.loadSubhalo(P.basePath, P.SNAP, int(sub_id), 'stars', fields=fields)
 
     pos   = Catalogue.Distance_3D(st['Coordinates']*P.UL, cen_pos, header['BoxSize']*P.UL)
     mass  = st['Masses'] * P.UM
-    pids  = st['ParticleIDs']
     phot  = st['GFM_StellarPhotometrics']
     metal = st['GFM_Metallicity']
     aform = st['GFM_StellarFormationTime']
 
-    # Clasificación SA
-    channel   = np.full(len(pids), -1, dtype=int)
-    progmass  = np.full(len(pids), np.nan)
-    progid    = np.full(len(pids), -1, dtype=np.int64)
-    for j, pid in enumerate(pids):
-        if pid in sa_map:
-            idx = sa_map[pid]
-            channel[j]  = int(sa_channel[idx])
-            progmass[j] = float(sa_progmass[idx])
-            progid[j]   = int(sa_progid[idx])
-
-    # Rotación
     pos_rot, _ = rotate_by_inertia_tensor(pos, mass)
-    r_2d = np.sqrt(pos_rot[:,0]**2 + pos_rot[:,1]**2)
+    r_2d  = np.sqrt(pos_rot[:,0]**2 + pos_rot[:,1]**2)
     lum_r = 10**((P.M_SUN_R_AB - phot[:,5]) / 2.5)
 
-    # Radio de Holmberg
     r_m, mu = sb_profile_r(r_2d, lum_r, np.percentile(r_2d, 99))
     r_h = holmberg_radius(r_m, mu)
     mask_bcg = r_2d <= r_h if np.isfinite(r_h) else np.zeros(len(r_2d), bool)
     mask_icl = ~mask_bcg
 
     return {'mass':mass, 'phot':phot, 'metal':metal, 'aform':aform,
-            'channel':channel, 'progmass':progmass, 'progid':progid,
             'r_2d':r_2d, 'pos_rot':pos_rot, 'lum_r':lum_r,
             'r_holmberg':r_h, 'mask_bcg':mask_bcg, 'mask_icl':mask_icl}
 """),
 
-md("## §4 – Fracciones de masa por componente y HMR (Figs. 7, 8, 9)"),
+md("""## §4 – Fracciones de masa por componente y HMR (equivalente a Figs. 7, 8, 9)
 
-code("""print("Calculando componentes y HMR para todos los cúmulos...")
+Las fracciones de componentes se leen directamente del catálogo SA agregado (ya calculadas arriba).
+Para las propiedades espaciales (HMR, radios de semi-masa) se cargan las partículas.
 
-# Resultados: fracciones y HMR para cada región × canal
-rows = []
-for i in range(n_cl):
-    try:
-        d = load_cluster_stars(bcg_sub_idx[i], GroupPos[i])
-    except Exception as e:
-        print(f"  Error cúmulo {i}: {e}")
-        rows.append(None); continue
-
-    row = {'i': i, 'M200c': M200c[i], 'r_h': d['r_holmberg']}
-    for region, mask in [('bcgicl', np.ones(len(d['mass']),bool)),
-                          ('icl',   d['mask_icl']),
-                          ('bcg',   d['mask_bcg'])]:
-        m_tot = d['mass'][mask].sum()
-        for ch in [0,1,2]:
-            mk = mask & (d['channel']==ch)
-            row[f'{region}_f{ch}'] = d['mass'][mk].sum()/m_tot if m_tot>0 else np.nan
-            row[f'{region}_hmr{ch}'] = hmr(d['r_2d'][mk], d['mass'][mk])
-    rows.append(row)
-    if (i+1)%10==0: print(f"  {i+1}/{n_cl}", end="\\r")
-
-print("\\nListo.")
-valid_rows = [r for r in rows if r is not None]
-lM_v = np.array([r['M200c'] for r in valid_rows])
-lM_v = np.log10(lM_v)
+**Nota**: sin catálogo SA por-partícula no es posible separar los componentes (in situ /
+mergers / stripped) dentro del BCG vs dentro del ICL. Las fracciones de componentes
+corresponden siempre al subhalo central completo (BCG+ICL juntos).
 """),
 
-code("""def linfit(x, y, log_x=False):
-    ok = np.isfinite(x)&np.isfinite(y)
-    xx = np.log10(x[ok]) if log_x else x[ok]
-    sl,ic,*_ = linregress(xx, y[ok])
+code("""def linfit(x, y):
+    ok = np.isfinite(x) & np.isfinite(y)
+    if ok.sum() < 3: return np.nan, np.nan
+    sl, ic, *_ = linregress(x[ok], y[ok])
     return sl, ic
 
-# ── Figura 8: Fracciones BCG+ICL ─────────────────────────────────────────
-fig, axes = plt.subplots(1,2,figsize=(13,5))
-for ax, region, title in zip(axes,['bcgicl','icl'],['BCG+ICL','ICL']):
-    for ch in [0,1,2]:
-        fv = np.array([r[f'{region}_f{ch}'] for r in valid_rows])
-        ok = np.isfinite(fv)
-        ax.scatter(lM_v[ok], fv[ok], color=COLORS_COMP[ch],
-                   label=LABELS_COMP[ch], s=15, alpha=0.7)
-        sl,ic = linfit(lM_v[ok], fv[ok])
-        xx = np.linspace(lM_v.min(), lM_v.max(), 100)
-        ax.plot(xx, sl*xx+ic, color=COLORS_COMP[ch], lw=1.8, ls='--',
-                label=f'β={sl:.3f}')
-    ax.set_xlabel(r'$\\log M_{{200c}}$'); ax.set_ylabel('Fracción de masa')
-    ax.set_title(f'Componentes del {title} (Fig. {"8" if title=="BCG+ICL" else "9"})')
-    ax.legend(fontsize=8, ncol=2)
+# ── Figura 8: fracciones de componentes BCG+ICL del catálogo SA ──────────
+COLORS_COMP = {'In situ':'#E91E63', 'Mergers':'#9C27B0', 'Stripped':'#00BCD4'}
+
+fig, ax = plt.subplots(figsize=(8,6))
+for f_arr, color, label in [
+    (f_insitu,  '#E91E63', 'In situ'),
+    (f_mergers, '#9C27B0', 'Mergers completados'),
+    (f_ongoing, '#00BCD4', 'Stripped (sobrev.)'),
+]:
+    ok = np.isfinite(f_arr)
+    ax.scatter(lM[ok], f_arr[ok], color=color, label=label, s=20, alpha=0.7)
+    sl, ic = linfit(lM[ok], f_arr[ok])
+    if np.isfinite(sl):
+        xx = np.linspace(lM.min(), lM.max(), 100)
+        ax.plot(xx, sl*xx+ic, color=color, lw=1.8, ls='--', label=f'β={sl:.3f}')
+
+ax.set_xlabel(r'$\\log M_{{200c}}\\;[M_\\odot]$')
+ax.set_ylabel('Fracción de masa estelar')
+ax.set_title('Componentes del BCG+ICL – catálogo SA (Fig. 8)')
+ax.legend(fontsize=9, ncol=2)
 plt.tight_layout()
-plt.savefig('fig08_09_componentes.pdf', bbox_inches='tight')
+plt.savefig('fig08_componentes_bcgicl.pdf', bbox_inches='tight')
+plt.show()
+
+print(f"Medianas  f_insitu={np.nanmedian(f_insitu):.3f}  "
+      f"f_mergers={np.nanmedian(f_mergers):.3f}  "
+      f"f_ongoing={np.nanmedian(f_ongoing):.3f}")
+"""),
+
+code("""# ── Figura 8b: desglose mayor vs menor en mergers ────────────────────────
+f_min_comp = np.where(mask_ok,
+    (sa_mergers[bcg_sub_idx] - sa_maj_comp[bcg_sub_idx]) / sa_tot_bcg, np.nan)
+f_min_ong  = np.where(mask_ok,
+    (sa_ongoing[bcg_sub_idx] - sa_maj_ong[bcg_sub_idx])  / sa_tot_bcg, np.nan)
+
+fig, axes = plt.subplots(1,2,figsize=(13,5))
+for ax, f_maj, f_min, title in [
+    (axes[0], f_maj_comp, f_min_comp, 'Mergers completados'),
+    (axes[1], f_maj_ong,  f_min_ong,  'Stripped (ongoing)'),
+]:
+    for f_arr, col, lbl in [(f_maj,'#9C27B0','Mayores (>1:4)'),
+                             (f_min,'#CE93D8','Menores (<1:4)')]:
+        ok = np.isfinite(f_arr)
+        ax.scatter(lM[ok], f_arr[ok], color=col, label=lbl, s=18, alpha=0.7)
+        sl, ic = linfit(lM[ok], f_arr[ok])
+        if np.isfinite(sl):
+            xx = np.linspace(lM.min(), lM.max(), 100)
+            ax.plot(xx, sl*xx+ic, color=col, lw=1.5, ls='--', label=f'β={sl:.3f}')
+    ax.set_xlabel(r'$\\log M_{{200c}}$'); ax.set_ylabel('Fracción de masa')
+    ax.set_title(f'{title}: mayor vs menor'); ax.legend(fontsize=8)
+plt.tight_layout()
+plt.savefig('fig08b_mayor_menor.pdf', bbox_inches='tight')
 plt.show()
 """),
 
-code("""# ── Figura 7: HMR de los componentes ─────────────────────────────────────
+code("""# ── HMR para BCG e ICL (Holmberg) usando partículas ─────────────────────
+# (no por componente SA, sino por región espacial)
+print("Calculando HMR por región espacial (BCG / ICL)...")
+hmr_bcg = np.full(n_cl, np.nan)
+hmr_icl = np.full(n_cl, np.nan)
+m_bcg   = np.full(n_cl, np.nan)
+m_icl   = np.full(n_cl, np.nan)
+
+for i in range(n_cl):
+    try: d = load_cluster_stars(bcg_sub_idx[i], GroupPos[i])
+    except: continue
+    r_h = d['r_holmberg']
+    if not np.isfinite(r_h): continue
+    for mask, hmr_arr, m_arr in [(d['mask_bcg'], hmr_bcg, m_bcg),
+                                  (d['mask_icl'], hmr_icl, m_icl)]:
+        r_k = d['r_2d'][mask]; ms_k = d['mass'][mask]
+        m_arr[i] = ms_k.sum()
+        if len(r_k) > 0 and ms_k.sum() > 0:
+            idx = np.argsort(r_k); cum = np.cumsum(ms_k[idx])
+            i50 = np.searchsorted(cum, cum[-1]/2)
+            hmr_arr[i] = r_k[idx[min(i50, len(r_k)-1)]]
+    if (i+1)%10==0: print(f"  {i+1}/{n_cl}", end="\\r")
+print("\\nListo.")
+
 fig, axes = plt.subplots(1,2,figsize=(13,5))
-for ax, region, title in zip(axes,['bcgicl','icl'],['BCG+ICL','ICL']):
-    for ch in [0,1,2]:
-        hv = np.array([r[f'{region}_hmr{ch}'] for r in valid_rows])
-        ok = np.isfinite(hv) & (hv>0)
-        ax.scatter(lM_v[ok], hv[ok], color=COLORS_COMP[ch],
-                   label=LABELS_COMP[ch], s=15, alpha=0.7)
-        if ok.sum()>3:
-            sl,ic = linfit(lM_v[ok], np.log10(hv[ok]))
-            xx = np.linspace(lM_v.min(), lM_v.max(), 100)
-            ax.plot(xx, 10**(sl*xx+ic), color=COLORS_COMP[ch], lw=1.5, ls='--')
+for ax, arr, title in [(axes[0], hmr_bcg, 'BCG'), (axes[1], hmr_icl, 'ICL')]:
+    ok = np.isfinite(arr) & (arr>0)
+    ax.scatter(lM[ok], arr[ok], s=20, alpha=0.7, color='steelblue')
+    sl, ic = linfit(lM[ok], np.log10(arr[ok]))
+    if np.isfinite(sl):
+        xx = np.linspace(lM.min(), lM.max(), 100)
+        ax.plot(xx, 10**(sl*xx+ic), 'k--', lw=1.5, label=f'β={sl:.3f}')
     ax.set_xlabel(r'$\\log M_{{200c}}$'); ax.set_ylabel('HMR [kpc]')
-    ax.set_yscale('log'); ax.set_title(f'Radio de semi-masa – {title} (Fig. 7)')
-    ax.legend(fontsize=9)
+    ax.set_yscale('log'); ax.set_title(f'Radio de semi-masa {title} (Fig. 7)')
+    ax.legend()
 plt.tight_layout()
-plt.savefig('fig07_hmr_componentes.pdf', bbox_inches='tight')
+plt.savefig('fig07_hmr_bcg_icl.pdf', bbox_inches='tight')
 plt.show()
 """),
 
@@ -1171,15 +1219,34 @@ LABELS_STATE = {0:'Relajado', 1:'Intermedio', 2:'Perturbado'}
 print(f"Catálogo cargado: {n_cl} cúmulos")
 """),
 
-code("""# Cargar catálogo de ensamblaje estelar
+code("""# Catálogo SA – estadísticas AGREGADAS por subhalo (ver read_hdf5_SA.ipynb)
 with h5py.File(P.SA_FILE, 'r') as f:
-    sa_pid      = f['ParticleID'][:]
-    sa_channel  = f['AssemblyChannel'][:]
-    sa_progmass = f['ProgGalaxyMass'][:] * P.UM
-    sa_progid   = f['ProgGalaxyID'][:]
+    s99 = f['Snapshot_99']
+    sa_insitu    = s99['StellarMassInSitu'][:]                    * P.UM
+    sa_exsitu    = s99['StellarMassExSitu'][:]                    * P.UM
+    sa_mergers   = s99['StellarMassFromCompletedMergers'][:]      * P.UM
+    sa_maj_comp  = s99['StellarMassFromCompletedMergersMajor'][:] * P.UM
+    sa_min_comp  = s99['StellarMassFromCompletedMergersMajorMinor'][:] * P.UM - sa_maj_comp
+    sa_ongoing   = s99['StellarMassFromOngoingMergers'][:]        * P.UM
+    sa_maj_ong   = s99['StellarMassFromOngoingMergersMajor'][:]   * P.UM
+    sa_total     = s99['StellarMassTotal'][:]                     * P.UM
 
-sa_map = dict(zip(sa_pid, np.arange(len(sa_pid))))
-print(f"Catálogo SA: {len(sa_pid):,} partículas")
+print(f"Catálogo SA: {len(sa_total):,} subhalos")
+
+# Fracciones para los BCGs
+sa_tot_bcg = sa_total[bcg_sub_idx]
+ok_m = sa_tot_bcg > 0
+f_insitu  = np.where(ok_m, sa_insitu[bcg_sub_idx]  / sa_tot_bcg, np.nan)
+f_exsitu  = np.where(ok_m, sa_exsitu[bcg_sub_idx]  / sa_tot_bcg, np.nan)
+f_mergers = np.where(ok_m, sa_mergers[bcg_sub_idx] / sa_tot_bcg, np.nan)
+f_ongoing = np.where(ok_m, sa_ongoing[bcg_sub_idx] / sa_tot_bcg, np.nan)
+f_maj_c   = np.where(ok_m, sa_maj_comp[bcg_sub_idx]/ sa_tot_bcg, np.nan)
+f_min_c   = np.where(ok_m, sa_min_comp[bcg_sub_idx]/ sa_tot_bcg, np.nan)
+f_maj_o   = np.where(ok_m, sa_maj_ong[bcg_sub_idx] / sa_tot_bcg, np.nan)
+
+print(f"Mediana f_insitu  = {np.nanmedian(f_insitu):.3f}")
+print(f"Mediana f_mergers = {np.nanmedian(f_mergers):.3f}  (completados)")
+print(f"Mediana f_ongoing = {np.nanmedian(f_ongoing):.3f}  (stripped)")
 """),
 
 code("""# Funciones auxiliares (mismas que notebook 02)
@@ -1226,216 +1293,254 @@ def linfit(x, y):
     if ok.sum()<3: return np.nan,np.nan
     sl,ic,*_=linregress(x[ok],y[ok]); return sl,ic
 
-def load_prog_data(sub_id, cen_pos, header=Header):
-    \"\"\"Carga partículas + clasificación SA + separa BCG/ICL.\"\"\"
-    fields=['Coordinates','Masses','ParticleIDs','GFM_StellarPhotometrics']
+def load_region_data(sub_id, cen_pos, header=Header):
+    \"\"\"Carga partículas estelares, aplica corte de Holmberg. Sin SA por-partícula.\"\"\"
+    fields=['Coordinates','Masses','GFM_StellarPhotometrics']
     st=il.snapshot.loadSubhalo(P.basePath,P.SNAP,int(sub_id),'stars',fields=fields)
     pos  =Catalogue.Distance_3D(st['Coordinates']*P.UL, cen_pos, header['BoxSize']*P.UL)
     mass =st['Masses']*P.UM
-    pids =st['ParticleIDs']
     phot =st['GFM_StellarPhotometrics']
-    channel=np.full(len(pids),-1,dtype=int)
-    progm  =np.full(len(pids),np.nan)
-    progid =np.full(len(pids),-1,dtype=np.int64)
-    for j,pid in enumerate(pids):
-        if pid in sa_map:
-            k=sa_map[pid]; channel[j]=int(sa_channel[k])
-            progm[j]=float(sa_progmass[k]); progid[j]=int(sa_progid[k])
     pos_rot,_=rotate_by_inertia_tensor(pos,mass)
     r_2d=np.sqrt(pos_rot[:,0]**2+pos_rot[:,1]**2)
     lum_r=10**((P.M_SUN_R_AB-phot[:,5])/2.5)
     r_h=sb_and_holmberg(r_2d,lum_r)
     mask_bcg = r_2d<=r_h if np.isfinite(r_h) else np.zeros(len(r_2d),bool)
-    return {'mass':mass,'r_2d':r_2d,'channel':channel,
-            'progmass':progm,'progid':progid,'lum_r':lum_r,
+    return {'mass':mass,'r_2d':r_2d,'lum_r':lum_r,
             'mask_bcg':mask_bcg,'mask_icl':~mask_bcg,'r_h':r_h}
+
+def get_merger_history(sub_id):
+    \"\"\"
+    Carga el árbol SubLink y extrae masas estelares de progenitores.
+    Devuelve array con masa estelar de cada satélite que se fusionó con el BCG.
+    La masa reportada es la del snapshot más reciente del satélite en el árbol.
+    \"\"\"
+    fields = ['SubhaloMassType', 'SnapNum', 'FirstProgenitorID', 'NextProgenitorID',
+              'DescendantID']
+    try:
+        tree = il.sublink.loadTree(P.basePath, P.SNAP, int(sub_id),
+                                    fields=fields, onlyMPB=False)
+    except Exception:
+        return np.array([])
+    if tree is None or len(tree['SnapNum']) == 0:
+        return np.array([])
+
+    # Identificar MPB: seguir FirstProgenitorID desde el índice 0
+    n = len(tree['SnapNum'])
+    in_mpb = np.zeros(n, dtype=bool)
+    in_mpb[0] = True
+    ptr = tree['FirstProgenitorID'][0]
+    while ptr >= 0 and ptr < n:
+        in_mpb[ptr] = True
+        ptr = tree['FirstProgenitorID'][ptr]
+
+    # Los progenitores fuera del MPB son satélites que se fusionaron
+    sat_stars = tree['SubhaloMassType'][~in_mpb, 4] * P.UM
+    return sat_stars[sat_stars > 1e7]  # >1e7 M☉ para excluir ruido numérico
 """),
 
-md("## §7.1 – Masa media de progenitores ICL vs BCG (Fig. 13)"),
+md("""## §7.1 – Distribución de masas de progenitores desde el árbol SubLink (Fig. 13)
 
-code("""print("§7.1 – Masa media de progenitores...")
-mean_pm_icl = np.full(n_cl, np.nan)
-mean_pm_bcg = np.full(n_cl, np.nan)
-frac_hi_icl = np.full(n_cl, np.nan)   # fracción ICL de progenitores M>thresh
+El catálogo SA da fracciones TOTALES del subhalo central (BCG+ICL juntos).
+Para separar qué progenitores contribuyeron al BCG vs al ICL se necesitaría un SA
+por-partícula, que no está disponible aquí.
+
+**Alternativa implementada**: usamos el árbol de fusiones SubLink para identificar
+los satélites que se fusionaron con el BCG y obtener su masa estelar al momento de la
+fusión. Esto da la **distribución de masas de progenitores para el BCG+ICL total**.
+El desglose mayor/menor se toma del catálogo SA (campos `CompletedMergersMajor`).
+"""),
+
+code("""print("§7.1 – Masa de progenitores desde SubLink...")
+mean_pm  = np.full(n_cl, np.nan)   # masa media de progenitores [M☉]
+frac_hi  = np.full(n_cl, np.nan)   # fracción de masa ex situ de prog. > M_PROG_THRESH
+n_sat    = np.full(n_cl, np.nan)   # número de satélites que contribuyeron
 
 for i in range(n_cl):
-    try: d = load_prog_data(bcg_sub_idx[i], GroupPos[i])
-    except: continue
-    for mask, arr in [(d['mask_icl'], mean_pm_icl), (d['mask_bcg'], mean_pm_bcg)]:
-        pm = d['progmass'][mask]; m = d['mass'][mask]
-        ex = d['channel'][mask] != 0
-        ok = ex & np.isfinite(pm)
-        if ok.sum()>0: arr[i] = np.average(pm[ok], weights=m[ok])
-    # fracción de alta masa en ICL
-    ex_icl = d['mask_icl'] & (d['channel']!=0) & np.isfinite(d['progmass'])
-    if ex_icl.sum()>0:
-        hi = d['mass'][ex_icl & (d['progmass']>=P.M_PROG_THRESH)].sum()
-        frac_hi_icl[i] = hi / d['mass'][ex_icl].sum()
-    if (i+1)%10==0: print(f"  {i+1}/{n_cl}",end="\\r")
+    try:
+        sat_m = get_merger_history(bcg_sub_idx[i])
+    except Exception as e:
+        print(f"  Error cúmulo {i}: {e}"); continue
+    if len(sat_m) == 0: continue
+    n_sat[i]   = len(sat_m)
+    mean_pm[i] = np.average(sat_m)
+    m_tot      = sat_m.sum()
+    hi_mask    = sat_m >= P.M_PROG_THRESH
+    frac_hi[i] = sat_m[hi_mask].sum() / m_tot if m_tot > 0 else np.nan
+    if (i+1)%10==0: print(f"  {i+1}/{n_cl}", end="\\r")
 print("\\nListo.")
-print(f"Fracción media ICL de prog. M>1e10 M☉: {np.nanmean(frac_hi_icl):.2f} ± {np.nanstd(frac_hi_icl):.2f}")
+print(f"Masa media progenitores: {np.nanmedian(mean_pm):.2e} M☉")
+print(f"Fracción de prog. M>1e10 M☉: {np.nanmean(frac_hi):.2f} ± {np.nanstd(frac_hi):.2f}  (paper: 0.65±0.15)")
+print(f"N medio de satélites fusionados: {np.nanmedian(n_sat):.0f}")
 """),
 
-code("""fig, ax = plt.subplots(figsize=(7,6))
-valid = np.isfinite(mean_pm_icl)&np.isfinite(mean_pm_bcg)
-sc = ax.scatter(np.log10(mean_pm_bcg[valid]), np.log10(mean_pm_icl[valid]),
-                c=lM[valid], cmap='viridis', s=25, alpha=0.8)
+code("""fig, axes = plt.subplots(1,2,figsize=(13,5))
+
+# Panel izq: masa media progenitores vs M200c
+ax = axes[0]
+ok = np.isfinite(mean_pm)
+sc = ax.scatter(lM[ok], np.log10(mean_pm[ok]), c=lM[ok], cmap='viridis', s=25, alpha=0.8)
 plt.colorbar(sc, ax=ax, label=r'$\\log M_{{200c}}$')
-x = np.log10(mean_pm_bcg[valid]); y = np.log10(mean_pm_icl[valid])
-sl,ic = linfit(x,y)
-xx = np.linspace(x.min(),x.max(),100)
-ax.plot(xx,sl*xx+ic,'orange',lw=2,label=f'β={sl:.3f}')
-lim=[min(x.min(),y.min()),max(x.max(),y.max())]
-ax.plot(lim,lim,'k--',lw=1.2,label='1:1')
-ax.set_xlabel(r'$\\log\\langle M_{{prog,BCG}}\\rangle$')
-ax.set_ylabel(r'$\\log\\langle M_{{prog,ICL}}\\rangle$')
-ax.set_title('Masa media de progenitores (Fig. 13)'); ax.legend()
-pct_below = (mean_pm_icl[valid]<mean_pm_bcg[valid]).mean()*100
-ax.text(0.03,0.97,f'ICL<BCG en {pct_below:.0f}% de los cúmulos',
-        transform=ax.transAxes,va='top',fontsize=10)
+sl, ic = linfit(lM[ok], np.log10(mean_pm[ok]))
+if np.isfinite(sl):
+    xx = np.linspace(lM.min(), lM.max(), 100)
+    ax.plot(xx, sl*xx+ic, 'k--', lw=1.5, label=f'β={sl:.3f}')
+ax.set_xlabel(r'$\\log M_{{200c}}$')
+ax.set_ylabel(r'$\\log\\langle M_{\\rm prog}\\rangle\\;[M_\\odot]$')
+ax.set_title('Masa media progenitores (análogo Fig. 13)'); ax.legend()
+
+# Panel der: fracción de alta masa vs M200c (comparar con SA mayor/menor)
+ax = axes[1]
+for f_arr, col, lbl in [(frac_hi, 'tomato', 'SubLink: M>10¹⁰ M☉'),
+                         (f_maj_c, '#9C27B0', 'SA: fusión mayor')]:
+    ok = np.isfinite(f_arr)
+    ax.scatter(lM[ok], f_arr[ok], color=col, label=lbl, s=20, alpha=0.7)
+    sl, ic = linfit(lM[ok], f_arr[ok])
+    if np.isfinite(sl):
+        xx = np.linspace(lM.min(), lM.max(), 100)
+        ax.plot(xx, sl*xx+ic, color=col, lw=1.5, ls='--')
+ax.set_xlabel(r'$\\log M_{{200c}}$')
+ax.set_ylabel('Fracción de masa')
+ax.set_title('Progenitores de alta masa (SubLink vs SA)'); ax.legend(fontsize=9)
+
 plt.tight_layout()
 plt.savefig('fig13_masa_progenitores.pdf', bbox_inches='tight')
 plt.show()
 """),
 
-md("## §7.2 – Progenitores compartidos ICL ↔ BCG (Fig. 14)"),
+md("""## §7.2 – Fracciones de ensamblaje del catálogo SA vs propiedades del halo (Fig. 8/9 equivalent)
 
-code("""print("§7.2 – Progenitores compartidos...")
-shared_icl = np.full(n_cl, np.nan)   # fracción ICL cuyos prog también están en BCG
-shared_bcg = np.full(n_cl, np.nan)   # fracción BCG cuyos prog también están en ICL
-
-for i in range(n_cl):
-    try: d = load_prog_data(bcg_sub_idx[i], GroupPos[i])
-    except: continue
-    ex = d['channel'] != 0
-    prog_icl = set(d['progid'][d['mask_icl']&ex&(d['progid']>=0)].tolist())
-    prog_bcg = set(d['progid'][d['mask_bcg']&ex&(d['progid']>=0)].tolist())
-    if len(prog_icl)>0: shared_icl[i] = len(prog_icl&prog_bcg)/len(prog_icl)
-    if len(prog_bcg)>0: shared_bcg[i] = len(prog_icl&prog_bcg)/len(prog_bcg)
-    if (i+1)%10==0: print(f"  {i+1}/{n_cl}",end="\\r")
-print("\\nListo.")
-print(f"Progenitores compartidos ICL→BCG: {np.nanmean(shared_icl)*100:.1f}%  (paper: 93%)")
-print(f"Progenitores compartidos BCG→ICL: {np.nanmean(shared_bcg)*100:.1f}%  (paper: 91%)")
+Los §7.2 (progenitores compartidos ICL↔BCG) y §7.3 (HMR por masa de progenitor en BCG vs ICL)
+de Mayes+2026 requieren un catálogo SA por-partícula para separar componentes espacialmente.
+Con el catálogo agregado disponible, mostramos las correlaciones entre las fracciones de
+ensamblaje y las propiedades del halo, que equivalen a los resultados de nivel más alto.
 """),
 
-code("""fig, axes = plt.subplots(1,2,figsize=(13,5))
-bins = np.linspace(0,1,25)
-ax = axes[0]
-ax.hist(shared_icl[np.isfinite(shared_icl)],bins=bins,color='royalblue',alpha=0.7,label='ICL→BCG')
-ax.hist(shared_bcg[np.isfinite(shared_bcg)],bins=bins,color='tomato',alpha=0.7,label='BCG→ICL')
-for x,col in [(shared_icl,'royalblue'),(shared_bcg,'tomato')]:
-    ax.axvline(np.nanmedian(x),color=col,lw=2,ls='--')
-ax.set_xlabel('Fracción de progenitores compartidos'); ax.set_ylabel('N cúmulos')
-ax.set_title('Progenitores compartidos (Fig. 14 top)'); ax.legend()
+code("""fig, axes = plt.subplots(2,2,figsize=(13,10))
 
-ax = axes[1]
-if dyn_state is not None:
-    for s in [0,1,2]:
-        m=dyn_state==s
-        ax.scatter(shared_icl[m],shared_bcg[m],color=COLORS_STATE[s],
-                   label=LABELS_STATE[s],s=20,alpha=0.8)
-else:
-    ax.scatter(shared_icl,shared_bcg,color='steelblue',s=20,alpha=0.7)
-ax.plot([0,1],[0,1],'k--',lw=1)
-ax.set_xlabel('Fracción ICL→BCG'); ax.set_ylabel('Fracción BCG→ICL')
-ax.set_title('Por estado dinámico (Fig. 14 bottom)'); ax.legend(fontsize=9)
+# SA fracciones vs M200c
+for ax, f_arr, col, lbl in [
+    (axes[0,0], f_insitu,  '#E91E63', 'In situ'),
+    (axes[0,1], f_exsitu,  '#2196F3', 'Ex situ total'),
+    (axes[1,0], f_maj_c,   '#9C27B0', 'Fusiones mayores completadas'),
+    (axes[1,1], f_maj_o,   '#00BCD4', 'Stripped de fusiones mayores'),
+]:
+    ok = np.isfinite(f_arr)
+    ax.scatter(lM[ok], f_arr[ok], color=col, s=20, alpha=0.7)
+    sl, ic = linfit(lM[ok], f_arr[ok])
+    if np.isfinite(sl):
+        xx = np.linspace(lM.min(), lM.max(), 100)
+        ax.plot(xx, sl*xx+ic, color=col, lw=1.8, ls='--', label=f'β={sl:.3f}')
+    if dyn_state is not None:
+        for s, col_s, lbl_s in [(0,'#2196F3','Rel.'),(1,'#FF9800','Int.'),(2,'#F44336','Pert.')]:
+            ms = (dyn_state==s)&ok
+            ax.scatter(lM[ms], f_arr[ms], color=col_s, label=lbl_s, s=15, alpha=0.9, zorder=5)
+    ax.set_xlabel(r'$\\log M_{{200c}}$'); ax.set_ylabel('Fracción de masa')
+    ax.set_title(lbl); ax.legend(fontsize=8)
+
 plt.tight_layout()
-plt.savefig('fig14_progenitores_compartidos.pdf', bbox_inches='tight')
+plt.savefig('fig_sa_fracciones.pdf', bbox_inches='tight')
 plt.show()
 """),
 
-md("## §7.3 – HMR del material por masa de progenitor (Fig. 15)"),
+md("## §7.3 – Historia de ensamblaje a lo largo del tiempo (multi-snapshot SA)"),
 
-code("""print("§7.3 – HMR por masa de progenitor...")
-# Para cada cúmulo: HMR del material de progenitores alta (>thresh) y baja masa
-# separado por canal (todo, mergers, stripped)
-results_hmr = {k: {'hi': np.full(n_cl,np.nan), 'lo': np.full(n_cl,np.nan)}
-               for k in ['all','mer','str']}
+code("""# Fracción in situ a diferentes redshifts para trazar la historia de ensamblaje
+# El catálogo SA tiene datos en todos los snapshots
+snap_list = [20, 33, 50, 67, 80, 91, 99]  # z≈3, 2, 1, 0.5, 0.2, 0.05, 0
+z_list    = []
 
-for i in range(n_cl):
-    try: d = load_prog_data(bcg_sub_idx[i], GroupPos[i])
-    except: continue
-    pm = d['progmass']; r = d['r_2d']; m = d['mass']; ch = d['channel']
-    ex = ch != 0
-    for key, filt in [('all', ex), ('mer', ex&(ch==1)), ('str', ex&(ch==2))]:
-        for hi_lo, cond in [('hi', pm>=P.M_PROG_THRESH), ('lo', pm<P.M_PROG_THRESH)]:
-            mk = filt & cond & np.isfinite(pm)
-            if mk.sum()>0:
-                results_hmr[key][hi_lo][i] = hmr(r[mk], m[mk])
-    if (i+1)%10==0: print(f"  {i+1}/{n_cl}",end="\\r")
-print("\\nListo.")
-"""),
+insitu_t  = np.full((n_cl, len(snap_list)), np.nan)
+exsitu_t  = np.full((n_cl, len(snap_list)), np.nan)
 
-code("""fig, axes = plt.subplots(1,3,figsize=(15,5),sharey=True)
-titles = ['Todo ex-situ','Mergers completados','Stripped (sobrev.)']
-keys   = ['all','mer','str']
+with h5py.File(P.SA_FILE, 'r') as f:
+    for j, sn in enumerate(snap_list):
+        key = f'Snapshot_{sn}'
+        if key not in f: continue
+        m_in  = f[key]['StellarMassInSitu'][:]  * P.UM
+        m_tot = f[key]['StellarMassTotal'][:] * P.UM
+        for i in range(n_cl):
+            si = bcg_sub_idx[i]
+            if si < len(m_tot) and m_tot[si] > 0:
+                insitu_t[i,j]  = m_in[si]  / m_tot[si]
+                exsitu_t[i,j]  = 1 - insitu_t[i,j]
 
-for ax,title,key in zip(axes,titles,keys):
-    hi = results_hmr[key]['hi']
-    lo = results_hmr[key]['lo']
-    for arr,col,lbl in [(hi,'tomato',f'M>10¹⁰ M☉'),(lo,'royalblue',f'M<10¹⁰ M☉')]:
-        ok = np.isfinite(arr)&(arr>0)
-        ax.scatter(lM[ok],arr[ok],color=col,s=20,alpha=0.7,label=lbl)
-        if ok.sum()>3:
-            sl,ic=linfit(lM[ok],np.log10(arr[ok]))
-            xx=np.linspace(lM.min(),lM.max(),100)
-            ax.plot(xx,10**(sl*xx+ic),color=col,lw=1.8,ls='--',label=f'β={sl:.3f}')
-    ax.set_xlabel(r'$\\log M_{{200c}}$')
-    ax.set_ylabel('HMR [kpc]' if ax==axes[0] else '')
-    ax.set_yscale('log'); ax.set_title(f'Fig. 15 – {title}'); ax.legend(fontsize=8)
+# Calcular z para cada snapshot
+from astropy.cosmology import FlatLambdaCDM
+cosmo = FlatLambdaCDM(H0=67.74, Om0=0.3089)
+header_snaps = {}
+for sn in snap_list:
+    try:
+        h_s = il.groupcat.loadHeader(P.basePath, sn)
+        z_list.append(1/h_s['Time'] - 1)
+    except:
+        z_list.append(np.nan)
+z_arr = np.array(z_list)
 
+fig, ax = plt.subplots(figsize=(9,6))
+ax.plot(z_arr, np.nanmedian(insitu_t, axis=0), 'r-o', lw=2, label='In situ (mediana)')
+ax.fill_between(z_arr,
+    np.nanpercentile(insitu_t,16,axis=0),
+    np.nanpercentile(insitu_t,84,axis=0),
+    color='red', alpha=0.2)
+ax.plot(z_arr, np.nanmedian(exsitu_t, axis=0), 'b-s', lw=2, label='Ex situ (mediana)')
+ax.fill_between(z_arr,
+    np.nanpercentile(exsitu_t,16,axis=0),
+    np.nanpercentile(exsitu_t,84,axis=0),
+    color='blue', alpha=0.2)
+ax.set_xlabel('Redshift z'); ax.set_ylabel('Fracción de masa estelar')
+ax.set_title('Evolución del ensamblaje estelar (BCG+ICL total)')
+ax.legend(); ax.invert_xaxis()
 plt.tight_layout()
-plt.savefig('fig15_hmr_por_masa_progenitor.pdf', bbox_inches='tight')
+plt.savefig('fig_evolucion_ensamblaje.pdf', bbox_inches='tight')
 plt.show()
 """),
 
-md("## §7.4 – Progenitor más significativo"),
+md("""## §7.4 – Progenitor más significativo (árbol SubLink)
+"""),
 
 code("""print("§7.4 – Progenitor más significativo...")
-frac_top1_icl = np.full(n_cl, np.nan)
-frac_top1_bcg = np.full(n_cl, np.nan)
-n_for_90_icl  = np.full(n_cl, np.nan)
+frac_top1 = np.full(n_cl, np.nan)
+n_for_90  = np.full(n_cl, np.nan)
 
 for i in range(n_cl):
-    try: d = load_prog_data(bcg_sub_idx[i], GroupPos[i])
-    except: continue
-    ex = d['channel'] != 0
-    for mask, arr1, arr90 in [(d['mask_icl'], frac_top1_icl, n_for_90_icl),
-                               (d['mask_bcg'], frac_top1_bcg, None)]:
-        mk = mask & ex & (d['progid']>=0)
-        pids_k = d['progid'][mk]; ms_k = d['mass'][mk]
-        if len(pids_k)==0: continue
-        m_tot = ms_k.sum()
-        contrib = {p: ms_k[pids_k==p].sum() for p in np.unique(pids_k)}
-        sorted_c = sorted(contrib.values(), reverse=True)
-        arr1[i] = sorted_c[0] / m_tot
-        if arr90 is not None:
-            cumf = np.cumsum(sorted_c)/m_tot
-            arr90[i] = np.searchsorted(cumf, 0.9) + 1
-    if (i+1)%10==0: print(f"  {i+1}/{n_cl}",end="\\r")
+    try:
+        sat_m = get_merger_history(bcg_sub_idx[i])
+    except Exception:
+        continue
+    if len(sat_m) == 0: continue
+    sorted_m = np.sort(sat_m)[::-1]
+    m_tot = sorted_m.sum()
+    if m_tot == 0: continue
+    frac_top1[i] = sorted_m[0] / m_tot
+    cumf = np.cumsum(sorted_m) / m_tot
+    n_for_90[i] = np.searchsorted(cumf, 0.9) + 1
+    if (i+1)%10==0: print(f"  {i+1}/{n_cl}", end="\\r")
 print("\\nListo.")
-print(f"Contribución top progenitor ICL: {np.nanmean(frac_top1_icl):.3f}±{np.nanstd(frac_top1_icl):.3f}  (paper: 0.27±0.12)")
-print(f"Contribución top progenitor BCG: {np.nanmean(frac_top1_bcg):.3f}±{np.nanstd(frac_top1_bcg):.3f}")
+print(f"Contribución top progenitor: {np.nanmean(frac_top1):.3f}±{np.nanstd(frac_top1):.3f}  (paper ICL: 0.27±0.12)")
+print(f"N progenitores para 90%: {np.nanmedian(n_for_90):.0f}")
 """),
 
 code("""fig, axes = plt.subplots(1,2,figsize=(13,5))
 
 ax = axes[0]
 bins = np.linspace(0,1,25)
-ax.hist(frac_top1_icl[np.isfinite(frac_top1_icl)],bins=bins,color='royalblue',alpha=0.7,label='ICL')
-ax.hist(frac_top1_bcg[np.isfinite(frac_top1_bcg)],bins=bins,color='tomato',alpha=0.7,label='BCG')
-for x,col in [(frac_top1_icl,'royalblue'),(frac_top1_bcg,'tomato')]:
-    ax.axvline(np.nanmedian(x),color=col,lw=2,ls='--')
+ax.hist(frac_top1[np.isfinite(frac_top1)], bins=bins, color='royalblue', alpha=0.8)
+ax.axvline(np.nanmedian(frac_top1), color='royalblue', lw=2, ls='--',
+           label=f'Mediana={np.nanmedian(frac_top1):.3f}')
 ax.set_xlabel('Fracción del progenitor más significativo')
-ax.set_ylabel('N cúmulos'); ax.set_title('Progenitor más significativo'); ax.legend()
+ax.set_ylabel('N cúmulos'); ax.set_title('BCG+ICL: progenitor más significativo'); ax.legend()
 
 ax = axes[1]
-ok = np.isfinite(n_for_90_icl)
-sc = ax.scatter(lM[ok], n_for_90_icl[ok], c=lM[ok], cmap='viridis', s=25, alpha=0.8)
+ok = np.isfinite(n_for_90)
+sc = ax.scatter(lM[ok], n_for_90[ok], c=lM[ok], cmap='viridis', s=25, alpha=0.8)
 plt.colorbar(sc, ax=ax, label=r'$\\log M_{{200c}}$')
+sl, ic = linfit(lM[ok], n_for_90[ok])
+if np.isfinite(sl):
+    xx = np.linspace(lM.min(), lM.max(), 100)
+    ax.plot(xx, sl*xx+ic, 'k--', lw=1.5, label=f'β={sl:.3f}')
 ax.set_xlabel(r'$\\log M_{{200c}}$')
-ax.set_ylabel('N progenitores para el 90% del ICL')
-ax.set_title('Progenitores necesarios para 90% ICL')
+ax.set_ylabel('N progenitores para el 90% del BCG+ICL')
+ax.set_title('Progenitores necesarios para 90% de masa'); ax.legend()
 
 plt.tight_layout()
 plt.savefig('fig_progenitor_significativo.pdf', bbox_inches='tight')
@@ -1444,12 +1549,18 @@ plt.show()
 
 md("""## Comparación con Mayes+2026
 
-| Resultado | Mayes+2026 | Este análisis |
-|-----------|-----------|---------------|
-| % ICL de progenitores M>10¹⁰ M☉ | 65 ± 15% | *(ver arriba)* |
-| Progenitores compartidos ICL→BCG | **93%** | *(ver arriba)* |
-| Progenitores compartidos BCG→ICL | **91%** | *(ver arriba)* |
-| Contribución top progenitor ICL | **0.27 ± 0.12** | *(ver arriba)* |
+| Resultado | Mayes+2026 | Este análisis | Método |
+|-----------|-----------|---------------|--------|
+| f_insitu BCG+ICL | ~50% | *(ver fig 8)* | SA agregado |
+| f_exsitu BCG+ICL | ~50% | *(ver fig 8)* | SA agregado |
+| Fracción de prog. M>10¹⁰ M☉ | 65 ± 15% | *(ver §7.1)* | SubLink |
+| Contribución top progenitor | **0.27 ± 0.12** | *(ver §7.4)* | SubLink |
+| Progenitores compartidos ICL↔BCG | **93%** | *requiere SA por-partícula* | — |
+| HMR por masa de progenitor | Fig. 15 | *requiere SA por-partícula* | — |
+
+**Nota**: Los análisis de Figs. 14 y 15 de Mayes+2026 que separan BCG vs ICL a nivel de
+progenitor individual requieren un catálogo SA por-partícula con `ProgGalaxyID`.
+El catálogo SA disponible (`stellar_assembly.hdf5`) es agregado por subhalo.
 """),
 
 ]

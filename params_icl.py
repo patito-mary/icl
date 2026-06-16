@@ -56,4 +56,4 @@ M_PROG_THRESH = 1e10   # M☉ — umbral alta/baja masa progenitor
 Z_SUN         = 0.0127  # fracción metálica solar (Asplund+2009)
 
 # ── Ruta a los catálogos de ensamblaje estelar (Rodriguez-Gomez+2016) ─────
-SA_FILE = '/path/to/stellar_assembly_TNG100-1_099.hdf5'   # ← ajustar
+SA_FILE = '../stellar_assembly.hdf5'   # ← ajustar
