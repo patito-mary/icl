@@ -36,7 +36,7 @@ HALOS_FIELDS = [
     'GroupPos',
     'GroupCM',
     'GroupNsubs',
-    'GroupMassType',
+    'GroupMassType'
 ]
 
 SUBHALOS_FIELDS = [
@@ -44,6 +44,7 @@ SUBHALOS_FIELDS = [
     'SubhaloMassType',
     'SubhaloGrNr',
     'SubhaloFlag',
+    'SubhaloStellarPhotometrics'
 ]
 
 # ── Parámetros de la separación BCG/ICL ───────────────────────────────────
@@ -57,3 +58,4 @@ Z_SUN         = 0.0127  # fracción metálica solar (Asplund+2009)
 
 # ── Ruta a los catálogos de ensamblaje estelar (Rodriguez-Gomez+2016) ─────
 SA_FILE = '../stellar_assembly.hdf5'   # ← ajustar
+CAT_FOSSIL_50 = '../fossil_catalog_TNG50.hdf5'        # ← ajustar
