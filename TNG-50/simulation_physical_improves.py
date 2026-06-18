@@ -1,3 +1,5 @@
+import h5py
+
 def Distance_1D(X, X_POS, BoxSize):
     """This function calculate the physical distance between centers/particles of galaxies
     avoiding the periodic box shifting 
@@ -49,3 +51,48 @@ def classify_fossil(group, mags_all, central_mag,
         print(f'Group {group} classified as {"fossil" if is_fossil else "non-fossil"} with gap {diff:.2f} and R/R200 {normpos[sats_mask]}')
         return True
     return False
+
+def save_category(h5group, groups, deltamags, distance, mass, radius, sats):
+    """
+    Save a category (in this case, I used to fossil classification) in a HDF5 group
+
+    Args:
+        h5group (file): file to save
+        groups (list): group list selected previously
+        deltamags (list): // list selected previously
+        distance (list): // list selected previously
+        mass (list): // list selected previously
+        radius (list): // list selected previously
+        sats (list): // list selected previously
+    """
+    
+    h5group.create_dataset('Halo_ID',   data = np.array(groups, dtype = np.int64))
+    h5group.create_dataset('Delta_mag', data = np.array(deltamags, dtype = np.float32))
+    h5group.create_dataset('M200',     data = np.array(mass, dtype = np.float32))
+    h5group.create_dataset('R200', data = np.array(radius, dtype = np.float32))
+    
+    if len(sats) > 0:
+        sat_lengths = np.array([len(s) for s in sats], dtype = np.int64)
+        sat_offsets = np.concatenate([[0], np.cumsum(sat_lengths)])
+        sat_flat    = np.concatenate(sats).astype(np.int64) if len(sats) > 0 else np.array([], dtype = np.int32)
+        dist_flat   = np.concatenate(distance).astype(np.float32) if len(distance) > 0 else np.array([], dtype = np.float32)
+        
+        h5group.create_dataset('Satellite_IDs', data = sat_flat)
+        h5group.create_dataset('Satellite_distances', data = dist_flat)
+        h5group.create_dataset('Satellite_offsets', data = sat_offsets)
+        
+def save_isolated(h5group, groups, mass, radius):
+    """
+    Save groups didnt inside classification criteria
+
+    Args:
+        h5group (file): file to save
+        groups (list): group list selected previously
+        mass (list): value list selected previously
+        radius (list): // list selected previously
+    """
+    
+    h5group.create_dataset('Halo_ID', data = np.array(groups, dtype = np.int64))
+    h5group.create_dataset('M200', data = np.array(mass, dtype = np.float32))
+    h5group.create_dataset('R200', data = np.array(radius, dtype = np.float32))
+    
