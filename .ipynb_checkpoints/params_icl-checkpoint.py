@@ -24,7 +24,7 @@ UM = 1e10 / h     # factor masa
 
 # ── Archivo del catálogo con los group IDs a analizar ─────────────────────
 # (Generado por tu código de estado dinámico; contiene los IDs de grupos TNG)
-CATALOG_PKL = './catalogo_grupos.pkl'   # ← ajustar path según corresponda
+CATALOG_PKL = './group_number_cat.pkl'   # ← ajustar path según corresponda
 
 # ── Archivo de salida del catálogo ICL ────────────────────────────────────
 CATALOG_OUT = './catalogo_icl.hdf5'
