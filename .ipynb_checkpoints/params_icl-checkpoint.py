@@ -20,11 +20,11 @@ Om0 = 0.31
 # Posición: ckpc/h  →  kpc físicos = value * a / h  (a=1 en snap 99)
 # Masa:     1e10 M☉/h →  M☉ = value * 1e10 / h
 UL = 1.0 / h      # factor longitud (a=1)
-UM = 1e10 / h     # factor masa
+# UM = 1e10 / h     # factor masa
 
 # ── Archivo del catálogo con los group IDs a analizar ─────────────────────
 # (Generado por tu código de estado dinámico; contiene los IDs de grupos TNG)
-CATALOG_PKL = './group_number_cat.pkl'   # ← ajustar path según corresponda
+CATALOG_PKL = './mary_haloshift_z0.pkl'   # ← ajustar path según corresponda
 
 # ── Archivo de salida del catálogo ICL ────────────────────────────────────
 CATALOG_OUT = './catalogo_icl.hdf5'
