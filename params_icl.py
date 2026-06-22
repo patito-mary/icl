@@ -20,11 +20,13 @@ Om0 = 0.31
 # Posición: ckpc/h  →  kpc físicos = value * a / h  (a=1 en snap 99)
 # Masa:     1e10 M☉/h →  M☉ = value * 1e10 / h
 UL = 1.0 / h      # factor longitud (a=1)
-# UM = 1e10 / h     # factor masa
+UM = 1e10 / h     # factor masa
 
-# ── Archivo del catálogo con los group IDs a analizar ─────────────────────
-# (Generado por tu código de estado dinámico; contiene los IDs de grupos TNG)
-CATALOG_PKL = './mary_haloshift_z0.pkl'   # ← ajustar path según corresponda
+# ── Archivos del catálogo de halos/subhalos (código de shift, TNG2PROPnum) ─
+# mary_haloshift_z0.pkl    : catálogo de halos (M200c por encima del umbral de cúmulo)
+# mary_subhaloshift_z0.pkl : catálogo de subhalos asociados (para clasificar fossil/no-fossil)
+CATALOG_PKL              = './mary_haloshift_z0.pkl'
+CATALOG_SUBHALOSHIFT_PKL = './mary_subhaloshift_z0.pkl'
 
 # ── Archivo de salida del catálogo ICL ────────────────────────────────────
 CATALOG_OUT = './catalogo_icl.hdf5'
@@ -47,6 +49,11 @@ SUBHALOS_FIELDS = [
     'SubhaloFlag',
     'SubhaloStellarPhotometrics'
 ]
+
+# ── Parámetros de la clasificación fossil / no-fossil (Jones+2003) ────────
+GAP_THRESHOLD  = 2.0   # Δm_r mínimo entre BCG y siguiente galaxia más brillante
+MASS_CUT_LOG10 = 9.5   # log M☉ mínimo para considerar una galaxia satélite
+R_FRAC_FOSSIL  = 0.5   # fracción de R200c dentro de la cual se busca la 2da galaxia
 
 # ── Parámetros de la separación BCG/ICL ───────────────────────────────────
 MU_HOLMBERG  = 26.5    # mag/arcsec² en banda r (corte de Holmberg)
