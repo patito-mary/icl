@@ -9,6 +9,9 @@
 __pycache__/
 *.pyc
 
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
 # Editor
 .vscode/
 
