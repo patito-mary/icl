@@ -18,5 +18,8 @@ __pycache__/
 # Environment
 environment.yml
 
+# Presentaciones locales
+pipeline_outline.html
+
 # macOS
 .DS_Store
