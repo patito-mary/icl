@@ -56,9 +56,10 @@ MASS_CUT_LOG10 = 9.5   # log M☉ mínimo para considerar una galaxia satélite
 R_FRAC_FOSSIL  = 0.5   # fracción de R200c dentro de la cual se busca la 2da galaxia
 
 # ── Parámetros de la separación BCG/ICL ───────────────────────────────────
-MU_HOLMBERG  = 26.5    # mag/arcsec² en banda r (corte de Holmberg)
-M_SUN_R_AB   = 4.65    # Magnitud absoluta del Sol en r-band (AB)
-SB_CONST     = M_SUN_R_AB + 21.572   # constante μ = SB_CONST - 2.5 log10(Σ_L)
+MU_HOLMBERG  = 26.5    # mag/arcsec² en banda B — definición original de Holmberg (1958)
+M_SUN_B_VEGA = 5.36    # Magnitud absoluta del Sol en B-band (Vega; Willmer 2018)
+M_SUN_R_AB   = 4.65    # Magnitud absoluta del Sol en r-band (AB) — reservado para referencia
+SB_CONST     = M_SUN_B_VEGA + 21.572   # constante μ = SB_CONST - 2.5 log10(Σ_L), banda B
 
 # ── Parámetros del análisis de progenitores ───────────────────────────────
 M_PROG_THRESH = 1e10   # M☉ — umbral alta/baja masa progenitor
