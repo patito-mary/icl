@@ -387,7 +387,7 @@ def comp_Reduced_Inertia_tensor(particles, SubhaloPos, Header, DistanceLIM):
 #    l=0
 #    Dist= Distance_3D(particles['Coordinates'],SubhaloCM, Header['BoxSize'])
 #    if l=0:
-#        IDSP=np.linalg.norm(Dist,axis=1)<=np.PINF
+#        IDSP=np.linalg.norm(Dist,axis=1)<=np.inf
 #    else:
 #        "compute the IDS"
 #        pass
@@ -425,7 +425,7 @@ def mu(xe, xH=0.76, mp=1.6726E-24):
     return 4/(1+3*xH+4*xH*xe)*mp
 
 
-def compute_mass_gas_temp_limits(masses, temp, temp_min=0, temp_max=np.PINF):
+def compute_mass_gas_temp_limits(masses, temp, temp_min=0, temp_max=np.inf):
     ids_fits_temp=np.logical_and(temp>=temp_min, temp<temp_max)
     return np.sum(masses[ids_fits_temp])
 
@@ -442,7 +442,7 @@ def compute_mass_gas_temp(masses, temperature):
     return np.array([HOTGAS, WARMGAS, COOLGAS, COLDGAS, HOTGAS+WARMGAS+COOLGAS+COLDGAS])
 
 #######Based on Torrey2017
-def compute_mass_gas_temp_limitsT2017(masses, temp, density, temp_min=0, temp_max=np.PINF, density_min=np.NINF, density_max=np.PINF):
+def compute_mass_gas_temp_limitsT2017(masses, temp, density, temp_min=0, temp_max=np.inf, density_min=-np.inf, density_max=np.inf):
     ids_fits_temp=np.logical_and(np.logical_and(np.logical_and(temp>=temp_min, temp<temp_max), density>=density_min), density<density_max)
     return np.sum(masses[ids_fits_temp])
 
