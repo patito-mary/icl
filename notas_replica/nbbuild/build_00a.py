@@ -1,0 +1,124 @@
+from common import *
+
+cells = [
+md(r'''
+# 00a · Chequeos baratos en el Lab antes de correr la réplica
+Sólo lee metadatos (headers, catálogo de grupos con un campo, claves del catálogo de ensamblaje,
+un tramo pequeño de él y una rama principal). **No carga partículas.** Si algo falla, la última celda
+lo lista con qué ajustar en `params_icl.py` o con qué variable de entorno.
+'''),
+code(REPO_CELL),
+code(r'''
+import importlib.metadata
+import numpy as np
+import h5py
+
+import illustris_python as il
+import params_icl as P
+'''),
+code(r'''
+fallas = []
+
+def chequeo(ok, texto, ayuda=''):
+    """Imprime OK/FALLA y acumula las fallas con su ayuda."""
+    print(f"[{'OK   ' if ok else 'FALLA'}] {texto}")
+    if not ok:
+        fallas.append(f"{texto}  →  {ayuda}")
+    return ok
+'''),
+
+md('## 1 · illustris_python y rutas'),
+code(r'''
+try:
+    il_version = importlib.metadata.version('illustris_python')
+except importlib.metadata.PackageNotFoundError:
+    il_version = getattr(il, '__version__', 'sin metadatos')
+print(f"illustris_python = {il_version}   ({il.__file__})")
+print(f"basePath         = {P.basePath}")
+print(f"SA por partícula = {P.SA_STARS_FILE.format(snap=P.SNAP)}")
+print(f"SA agregado      = {P.SA_FILE}")
+print(f"Catálogo salida  = {P.CATALOG_OUT}")
+'''),
+code(r'''
+chequeo(os.path.isdir(P.basePath), "basePath existe", "define TNG_BASEPATH o corrige P.basePath")
+snap_file = il.snapshot.snapPath(P.basePath, P.SNAP)
+chequeo(os.path.exists(snap_file), f"snapshot {P.SNAP} (chunk 0) existe", snap_file)
+off_file = il.groupcat.offsetPath(P.basePath, P.SNAP)
+chequeo(os.path.exists(off_file), f"offsets_{P.SNAP:03d}.hdf5 existe", off_file)
+'''),
+
+md('## 2 · Header y número de estrellas del snapshot'),
+code(r'''
+Header = il.groupcat.loadHeader(P.basePath, P.SNAP)
+chequeo(abs(Header['Redshift']) < 1e-6, f"z = {Header['Redshift']:.3g} en el snap {P.SNAP}", "revisa P.SNAP")
+chequeo(abs(Header['BoxSize'] - P.L_BOX) < 1, f"BoxSize = {Header['BoxSize']:.0f} ckpc/h", "¿es TNG100-1?")
+'''),
+code(r'''
+with h5py.File(snap_file, 'r') as f:
+    npart = f['Header'].attrs['NumPart_Total']
+    hword = f['Header'].attrs['NumPart_Total_HighWord']
+n_star_snap = int(npart[4]) + (int(hword[4]) << 32)
+print(f"PartType4 en el snapshot = {n_star_snap:,}")
+'''),
+
+md('## 3 · Muestra: corte Group_M_Crit200 ≥ 1e3 (1e10 M☉/h)'),
+code(r'''
+M200_int = il.groupcat.loadHalos(P.basePath, P.SNAP, fields=['Group_M_Crit200'])
+n_sel = int((M200_int >= P.M200_MIN_INTERNAL).sum())
+n_14  = int((M200_int * P.UM_H > 1e14).sum())
+chequeo(n_sel == P.PAPER_VALUES['N_halos'], f"N halos = {n_sel}  (paper {P.PAPER_VALUES['N_halos']})",
+        "si no da 127, revisar la convención de h (params_icl.M200_MIN_INTERNAL)")
+chequeo(n_14 == P.PAPER_VALUES['N_halos_1e14'], f"N > 1e14 Msun/h = {n_14}  (paper {P.PAPER_VALUES['N_halos_1e14']})")
+print(f"M200c máx = {M200_int.max() * P.UM_H:.3e} Msun/h   (paper 2.6e14)")
+'''),
+
+md('## 4 · Catálogo de ensamblaje estelar por partícula (Rodriguez-Gomez+2016)'),
+code(r'''
+SA_PATH = P.SA_STARS_FILE.format(snap=P.SNAP)
+sa_ok = chequeo(os.path.exists(SA_PATH), "archivo SA por partícula existe",
+                "busca con: ls /home/tnguser/sims.TNG/TNG100-1/postprocessing/StellarAssembly/ "
+                "y ajusta P.SA_STARS_FILE / TNG_SA_STARS_FILE")
+'''),
+code(r'''
+if sa_ok:
+    with h5py.File(SA_PATH, 'r') as f:
+        sa_shapes = {k: (f[k].shape, str(f[k].dtype)) for k in f if isinstance(f[k], h5py.Dataset)}
+        for k, (shape, dt) in sa_shapes.items():
+            print(f"  {k:<35s} {str(shape):<14s} {dt}")
+        for campo in (P.SA_FIELD_INSITU, P.SA_FIELD_ORIGIN):
+            if chequeo(campo in f, f"campo '{campo}' presente", f"campos disponibles: {list(sa_shapes)}"):
+                chequeo(f[campo].shape[0] == n_star_snap, f"largo de '{campo}' = PartType4 del snapshot",
+                        "el catálogo no está en el orden de PartType4: hay que alinear por ParticleIDs")
+                muestra = f[campo][:1_000_000]
+                print(f"    valores en el primer millón: { {int(v): int(n) for v, n in zip(*np.unique(muestra, return_counts=True))} }")
+'''),
+code(r'''
+# opcional: sólo lo usa read_hdf5_SA.ipynb (no detiene la réplica)
+print(f"[{'OK   ' if os.path.exists(P.SA_FILE) else 'aviso'}] catálogo SA agregado: {P.SA_FILE}")
+'''),
+
+md('## 5 · Árboles SubLink (rama principal del BCG más masivo)'),
+code(r'''
+i_max   = int(np.argmax(M200_int))
+first   = il.groupcat.loadSingle(P.basePath, P.SNAP, haloID=i_max)['GroupFirstSub']
+try:
+    mpb = il.sublink.loadTree(P.basePath, P.SNAP, int(first), onlyMPB=True,
+                              fields=['SnapNum', 'SubfindID', 'SubhaloGrNr', 'SubhaloPos',
+                                      'SubhaloMassInRadType', 'MainLeafProgenitorID'])
+    chequeo(mpb is not None, f"MPB del BCG {first}: {len(mpb['SnapNum'])} snapshots, campos de 03 presentes")
+except (OSError, KeyError) as e:
+    chequeo(False, "árbol SubLink con los campos de 03", str(e))
+'''),
+
+md('## 6 · Resumen'),
+code(r'''
+if fallas:
+    print("Hay que resolver antes de correr la réplica:")
+    for x in fallas:
+        print(f"  - {x}")
+    raise RuntimeError(f"{len(fallas)} chequeo(s) fallaron")
+print("Todo OK: se puede correr 00_catalogo.ipynb")
+'''),
+]
+if __name__ == "__main__":
+    write_nb('00a_chequeos_lab.ipynb', cells)
