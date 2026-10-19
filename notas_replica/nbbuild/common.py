@@ -42,6 +42,9 @@ def write_nb(name, cells, metadata=None):
     with open(path, 'w', encoding='utf-8') as f:
         nbformat.write(nb, f)
     print(f'escrito {path}  ({len(cells)} celdas)')
+    # celda de verificación de módulos y orden de sys.path (idempotente)
+    from patch_imports_check import patch
+    patch(name.replace('.ipynb', ''))
 
 
 # ── Celdas comunes de cabecera ───────────────────────────────────────────
@@ -58,9 +61,11 @@ if REPO_DIR is None:
     raise FileNotFoundError(f"No encuentro params_icl.py en {REPO_CANDIDATOS}; define ICL_REPO_DIR")
 
 os.chdir(REPO_DIR)
-for p in [REPO_DIR, REPO_DIR / 'original_shift_code']:
-    if str(p) not in sys.path:
-        sys.path.insert(0, str(p))
+# el repo va PRIMERO en sys.path (gana sobre cualquier otro icl_funcs/params_icl)
+for p in [REPO_DIR / 'original_shift_code', REPO_DIR]:
+    if str(p) in sys.path:
+        sys.path.remove(str(p))
+    sys.path.insert(0, str(p))
 print(f"Carpeta de trabajo: {os.getcwd()}")
 '''
 

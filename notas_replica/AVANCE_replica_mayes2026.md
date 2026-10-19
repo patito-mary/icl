@@ -142,3 +142,21 @@ Corrección mínima de 00:
 - Sólo cambió la celda de m_DM a la v2 (diff contra HEAD: 2 líneas).
 - Se limpiaron outputs y execution_count; la metadata quedó igual a HEAD; se conservaron los ids.
 - Mary no había cambiado ningún código.
+
+## 2026-10-19 (d) · `AttributeError: icl_funcs has no attribute 'snapshot_header'` en el Lab (00a)
+
+Evidencia:
+- La función está en HEAD = origin/replica-mayes2026 (9f87406) desde 60e82b1.
+- El 00 que Mary guardó desde el Lab ya traía la celda v1 de 60e82b1: el Lab tenía los notebooks nuevos, pero `icl_funcs` venía sin la función.
+
+Causas probables:
+- (b) kernel con un `icl_funcs` viejo ya importado; o
+- (c) otro `icl_funcs` antes en sys.path. La celda de rutas anteponía `original_shift_code` al repo.
+
+Arreglo (`nbbuild/patch_imports_check.py`, idempotente; `common.write_nb` lo aplica siempre):
+- El repo va primero en sys.path (en 00a, 00, 01, 01c, 01e, 01f, 02 y 03).
+- Celda nueva tras los imports en 00a, 00, 01, 01e, 02 y 03:
+  - hace `importlib.reload` de P y F e imprime sus rutas;
+  - verifica las funciones y parámetros que necesita cada notebook y que F venga del repo;
+  - si algo falla: ImportError con "git pull + git log --oneline -3 + REINICIA el kernel".
+- Pruebas negativas OK: con un icl_funcs viejo en original_shift_code ahora gana el del repo; con el icl_funcs del repo viejo, el mensaje es claro.
