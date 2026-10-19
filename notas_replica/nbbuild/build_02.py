@@ -53,10 +53,7 @@ with h5py.File(SA_PATH, 'r') as f:
 print(f"Campos en el archivo: {sa_len}")
 '''),
 code(r'''
-with h5py.File(il.snapshot.snapPath(P.basePath, P.SNAP), 'r') as f:
-    npart = f['Header'].attrs['NumPart_Total']
-    hword = f['Header'].attrs['NumPart_Total_HighWord']
-n_star_snap = int(npart[4]) + (int(hword[4]) << 32)
+n_star_snap = F.n_stars_snapshot(F.snapshot_header(P.basePath, P.SNAP))   # Header del snapshot
 print(f"PartType4 en el snapshot : {n_star_snap:,}")
 print(f"Largo del catálogo SA    : {sa_len.get(P.SA_FIELD_INSITU)}")
 print("(deben coincidir: el catálogo se asume en el orden de PartType4)")

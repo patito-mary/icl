@@ -15,6 +15,7 @@ import h5py
 
 import illustris_python as il
 import params_icl as P
+import icl_funcs as F
 '''),
 code(r'''
 fallas = []
@@ -47,18 +48,30 @@ off_file = il.groupcat.offsetPath(P.basePath, P.SNAP)
 chequeo(os.path.exists(off_file), f"offsets_{P.SNAP:03d}.hdf5 existe", off_file)
 '''),
 
-md('## 2 · Header y número de estrellas del snapshot'),
-code(r'''
-Header = il.groupcat.loadHeader(P.basePath, P.SNAP)
-chequeo(abs(Header['Redshift']) < 1e-6, f"z = {Header['Redshift']:.3g} en el snap {P.SNAP}", "revisa P.SNAP")
-chequeo(abs(Header['BoxSize'] - P.L_BOX) < 1, f"BoxSize = {Header['BoxSize']:.0f} ckpc/h", "¿es TNG100-1?")
+md(r'''
+## 2 · Headers: catálogo de grupos y snapshot
+`il.groupcat.loadHeader` lee el Header del catálogo de grupos (sin `MassTable`); `MassTable` y
+`NumPart_Total` se leen del Header del snapshot con `F.snapshot_header`.
 '''),
 code(r'''
-with h5py.File(snap_file, 'r') as f:
-    npart = f['Header'].attrs['NumPart_Total']
-    hword = f['Header'].attrs['NumPart_Total_HighWord']
-n_star_snap = int(npart[4]) + (int(hword[4]) << 32)
+Header = il.groupcat.loadHeader(P.basePath, P.SNAP)
+CLAVES_GC = ['BoxSize', 'Redshift', 'Time', 'HubbleParam']
+faltan_gc = [k for k in CLAVES_GC if k not in Header]
+chequeo(not faltan_gc, f"Header del groupcat trae {CLAVES_GC}", f"faltan {faltan_gc}; claves: {sorted(Header)}")
+print(f"  (MassTable en el Header del groupcat: {'MassTable' in Header} — la réplica no la usa de ahí)")
+chequeo(abs(Header['Redshift']) < 1e-6, f"z = {Header['Redshift']:.3g} en el snap {P.SNAP}", "revisa P.SNAP")
+chequeo(abs(Header['BoxSize'] - P.L_BOX) < 1, f"BoxSize = {Header['BoxSize']:.0f} ckpc/h", "¿es TNG100-1?")
+chequeo(abs(Header['HubbleParam'] - P.h) < 1e-4, f"h = {Header['HubbleParam']}", "revisa P.h")
+'''),
+code(r'''
+HeaderSnap = F.snapshot_header(P.basePath, P.SNAP)
+CLAVES_SNAP = ['MassTable', 'NumPart_Total', 'NumPart_Total_HighWord']
+faltan_sn = [k for k in CLAVES_SNAP if k not in HeaderSnap]
+chequeo(not faltan_sn, f"Header del snapshot trae {CLAVES_SNAP}", f"faltan {faltan_sn}; claves: {sorted(HeaderSnap)}")
+n_star_snap = F.n_stars_snapshot(HeaderSnap)
+m_dm = HeaderSnap['MassTable'][1] * P.UM
 print(f"PartType4 en el snapshot = {n_star_snap:,}")
+chequeo(5e6 < m_dm < 1e7, f"m_DM = {m_dm:.3e} Msun (TNG100-1: 7.5e6)", "MassTable[1] inesperado")
 '''),
 
 md('## 3 · Muestra: corte Group_M_Crit200 ≥ 1e3 (1e10 M☉/h)'),

@@ -22,8 +22,11 @@ def _pick(d, fields):
 
 def loadHeader(basePath, snapNum):
     z = W.z_of(snapNum)
-    return {'Redshift': z, 'Time': 1 / (1 + z), 'BoxSize': W.BOX,
-            'MassTable': np.array([0, 6e-4, 0, 0, 0, 0]), 'HubbleParam': W.H}
+    # Fiel a TNG: el Header del catálogo de grupos (fof_subhalo_tab) NO trae MassTable ni NumPart_*;
+    # esos están en el Header del snapshot (ver snapshot.snapPath / _world.ensure_files)
+    return {'Redshift': z, 'Time': 1 / (1 + z), 'BoxSize': W.BOX, 'HubbleParam': W.H,
+            'Omega0': 0.3089, 'OmegaLambda': 0.6911, 'Ngroups_Total': W.NG,
+            'Nsubgroups_Total': W.NG * W.NSUB, 'NumFiles': 1}
 
 
 def loadHalos(basePath, snapNum, fields=None):

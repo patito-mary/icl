@@ -28,10 +28,17 @@ def code(text, cid=None):
 
 
 def write_nb(name, cells, metadata=None):
+    path = os.path.join(REPO, name)
+    # reutiliza los ids del notebook existente si tiene el mismo número de celdas (diffs limpios)
+    if os.path.exists(path):
+        old = nbformat.read(path, as_version=4).cells
+        if len(old) == len(cells):
+            for c, o in zip(cells, old):
+                if c['cell_type'] == o['cell_type']:
+                    c['id'] = o['id']
     nb = new_notebook(cells=cells, metadata=metadata or KERNEL_META)
     nb.nbformat, nb.nbformat_minor = 4, 5
     nbformat.validate(nb)
-    path = os.path.join(REPO, name)
     with open(path, 'w', encoding='utf-8') as f:
         nbformat.write(nb, f)
     print(f'escrito {path}  ({len(cells)} celdas)')

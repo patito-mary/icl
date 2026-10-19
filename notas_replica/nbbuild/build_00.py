@@ -157,7 +157,9 @@ md(r'''
 `# SUPUESTO:` partículas DM del FoF, `P.NFW_N_BINS` cáscaras logarítmicas entre `P.NFW_R_MIN_FRAC` y 1 R₂₀₀c, ajuste en log ρ.
 '''),
 code(r'''
-m_dm = Header['MassTable'][1] * P.UM        # masa de una partícula DM [Msun]
+# MassTable está en el Header del SNAPSHOT, no en el del groupcat (il.groupcat.loadHeader)
+m_dm = F.dm_particle_mass_msun(P.basePath, P.SNAP, P.UM, P.M_DM_MSUN_FALLBACK)   # Msun
+print(f"m_DM = {m_dm:.3e} Msun")
 
 concentration = np.full(n_cl, np.nan)
 r_s_kpc       = np.full(n_cl, np.nan)

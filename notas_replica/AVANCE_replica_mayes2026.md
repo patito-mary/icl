@@ -86,3 +86,25 @@ No afectan f_ICL: estado dinámico, NFW, merger, catálogo SA, cuña, progenitor
 Validar en 01:
 - el cúmulo demo (3.º más masivo) debería dar R_H ≈ 200 kpc si es el de la Fig. 1;
 - mediana de f_ICL ≈ 0.10.
+
+## 2026-10-19 · Error `header['MassTable']` en el Lab
+
+**Causa:**
+- 00 (celda de concentración NFW) leía `Header['MassTable']` del header que devuelve `il.groupcat.loadHeader`.
+- En illustris_python 1.0.0 esa función hace `dict(f['Header'].attrs)` sobre `groups_NNN/fof_subhalo_tab_NNN.0.hdf5`, el Header del catálogo de grupos.
+- En TNG ese Header no tiene `MassTable`, que vive en el Header del snapshot. Tampoco hay `il.snapshot.loadHeader` pública.
+- El mock de la primera prueba ponía `MassTable` en el header del groupcat, y por eso no lo detectó.
+
+**Arreglo:**
+- `icl_funcs`:
+  - `snapshot_header()` lee el Header de `snapdir_NNN/snap_NNN.0.hdf5`;
+  - `n_stars_snapshot()`;
+  - `dm_particle_mass_msun()` usa `MassTable[1]` × UM, con respaldo `P.M_DM_MSUN_FALLBACK = 7.5e6` y aviso si se usa.
+- Cambios por notebook:
+  - 00 usa `F.dm_particle_mass_msun`;
+  - 02 usa `F.snapshot_header`;
+  - 00a valida las claves de AMBOS headers (falla con la lista de claves disponibles) y comprueba m_DM entre 5e6 y 1e7 Msun.
+- El mock ahora es fiel: el header del groupcat no trae `MassTable` y el Header del snapshot sí. Con el código viejo, el mock reproduce el `KeyError`; con el arreglo, toda la batería pasa.
+- `common.write_nb` ahora reutiliza los ids de celda si el número de celdas no cambia, para que los diffs queden limpios.
+
+Las demás lecturas de `il.groupcat.loadHeader` usan sólo BoxSize, Redshift y Time, que sí están en el Header del groupcat.
