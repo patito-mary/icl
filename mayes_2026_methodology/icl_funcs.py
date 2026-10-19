@@ -549,22 +549,33 @@ def n_stars_snapshot(header):
     return int(header['NumPart_Total'][4]) + (int(header['NumPart_Total_HighWord'][4]) << 32)
 
 
-def dm_particle_mass_msun(basePath, snap, UM, fallback_msun=None):
+def dm_particle_mass_msun(basePath, snap, UM, m_dm_internal_doc=None):
     """
-    Masa de una partícula de DM [Msun] = MassTable[1] del Header del snapshot [1e10 Msun/h] × UM.
-    Si no se puede leer y se da fallback_msun, lo usa avisando; si no, falla con mensaje claro.
+    Masa de una partícula de DM [Msun] y la fuente usada.
+    La DM de TNG tiene masa constante: no hay campo 'Masses' en PartType1; la masa está en
+    MassTable[1] del Header del SNAPSHOT [1e10 Msun/h] (doc: "Masses of particle types which have
+    a constant mass (only DM)"). Si el Header no la trae o vale 0, se usa el valor documentado de la
+    simulación (m_dm_internal_doc, en 1e10 Msun/h; TNG100-1: 0.000505574296436975, página
+    tng-project.org/data/downloads/TNG100-1/). Si están ambos y difieren, avisa.
+    Devuelve (m_dm_Msun, fuente). Falla con mensaje claro si no hay ninguna fuente.
     """
+    m_hdr, err = np.nan, None
     try:
-        m = float(snapshot_header(basePath, snap)['MassTable'][1])
-        if m > 0:
-            return m * UM
-        raise KeyError('MassTable[1] = 0')
-    except (OSError, KeyError) as e:
-        if fallback_msun is None:
-            raise KeyError(f"No pude leer MassTable[1] del Header del snapshot {snap} ({e}). "
-                           "Define P.M_DM_MSUN_FALLBACK si quieres usar el valor tabulado.") from e
-        print(f"[AVISO] MassTable no disponible ({e}); uso m_DM = {fallback_msun:.3e} Msun (P.M_DM_MSUN_FALLBACK)")
-        return fallback_msun
+        hdr = snapshot_header(basePath, snap)
+        if 'MassTable' in hdr:
+            m_hdr = float(np.asarray(hdr['MassTable'])[1])
+        else:
+            err = f"el Header del snapshot no tiene MassTable (claves: {sorted(hdr)})"
+    except OSError as e:
+        err = str(e)
+    if m_hdr > 0:
+        if m_dm_internal_doc and abs(m_hdr / m_dm_internal_doc - 1) > 1e-4:
+            print(f"[AVISO] MassTable[1] = {m_hdr:.6g} difiere del valor documentado {m_dm_internal_doc:.6g}")
+        return m_hdr * UM, 'MassTable[1] del Header del snapshot'
+    if m_dm_internal_doc:
+        motivo = err or 'MassTable[1] = 0'
+        return m_dm_internal_doc * UM, f'valor documentado de la simulación ({motivo})'
+    raise KeyError(f"Sin masa de DM: {err or 'MassTable[1] = 0'} y no hay valor documentado (P.M_DM_INTERNAL_DOC)")
 
 
 def _require_il():

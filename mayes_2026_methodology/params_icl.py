@@ -87,10 +87,12 @@ DYN_LABELS = {0: 'Relajado', 1: 'Intermedio', 2: 'Perturbado'}
 NFW_R_MIN_FRAC = 0.05
 NFW_R_MAX_FRAC = 1.0
 NFW_N_BINS     = 20
-# Masa de la partícula DM: se lee de MassTable[1] del Header del SNAPSHOT (el del groupcat no la trae).
-# Respaldo sólo si esa lectura falla: valor tabulado de TNG100-1, m_DM = 7.5e6 Msun (Nelson+2019;
-# también §2.1 del paper). La concentración no depende de esta masa (sólo escala ρ).
-M_DM_MSUN_FALLBACK = 7.5e6
+# Masa de la partícula DM (constante en TNG; PartType1 no tiene 'Masses'):
+# 1) MassTable[1] del Header del SNAPSHOT (el Header del catálogo de grupos no la trae);
+# 2) si falta o es 0, el valor DOCUMENTADO de TNG100-1 (tng-project.org/data/downloads/TNG100-1/:
+#    "dark matter particle mass [10^10 msun/h] 0.000505574296436975" ≈ 7.46e6 Msun).
+# La concentración no depende de esta masa (sólo escala ρ).
+M_DM_INTERNAL_DOC = 0.000505574296436975     # [1e10 Msun/h]
 
 # ── Último major merger (§3) ──────────────────────────────────────────────
 MAJOR_MERGER_RATIO = 1/5     # razón de masa estelar > 1/5
