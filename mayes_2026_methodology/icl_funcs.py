@@ -529,6 +529,44 @@ def significant_progenitors(prog_ids, mass, frac=0.90):
 STAR_FIELDS = ['Coordinates', 'Masses', 'GFM_StellarPhotometrics', 'GFM_StellarFormationTime']
 
 
+def snapshot_header(basePath, snap):
+    """
+    Header del SNAPSHOT (chunk 0) como dict. Ojo: il.groupcat.loadHeader lee el Header del
+    catálogo de grupos (fof_subhalo_tab), que en TNG NO trae MassTable ni NumPart_Total;
+    illustris_python 1.0 no tiene una función pública para el Header del snapshot.
+    """
+    _require_il()
+    import h5py
+    path = il.snapshot.snapPath(basePath, snap)
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"No existe el chunk 0 del snapshot {snap}: {path}")
+    with h5py.File(path, 'r') as f:
+        return dict(f['Header'].attrs.items())
+
+
+def n_stars_snapshot(header):
+    """Número total de PartType4 desde el Header del snapshot (incluye la palabra alta)."""
+    return int(header['NumPart_Total'][4]) + (int(header['NumPart_Total_HighWord'][4]) << 32)
+
+
+def dm_particle_mass_msun(basePath, snap, UM, fallback_msun=None):
+    """
+    Masa de una partícula de DM [Msun] = MassTable[1] del Header del snapshot [1e10 Msun/h] × UM.
+    Si no se puede leer y se da fallback_msun, lo usa avisando; si no, falla con mensaje claro.
+    """
+    try:
+        m = float(snapshot_header(basePath, snap)['MassTable'][1])
+        if m > 0:
+            return m * UM
+        raise KeyError('MassTable[1] = 0')
+    except (OSError, KeyError) as e:
+        if fallback_msun is None:
+            raise KeyError(f"No pude leer MassTable[1] del Header del snapshot {snap} ({e}). "
+                           "Define P.M_DM_MSUN_FALLBACK si quieres usar el valor tabulado.") from e
+        print(f"[AVISO] MassTable no disponible ({e}); uso m_DM = {fallback_msun:.3e} Msun (P.M_DM_MSUN_FALLBACK)")
+        return fallback_msun
+
+
 def _require_il():
     if il is None:
         raise ImportError("illustris_python no está disponible: esta función sólo corre en el TNG Lab.")

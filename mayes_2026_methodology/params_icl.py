@@ -87,6 +87,10 @@ DYN_LABELS = {0: 'Relajado', 1: 'Intermedio', 2: 'Perturbado'}
 NFW_R_MIN_FRAC = 0.05
 NFW_R_MAX_FRAC = 1.0
 NFW_N_BINS     = 20
+# Masa de la partícula DM: se lee de MassTable[1] del Header del SNAPSHOT (el del groupcat no la trae).
+# Respaldo sólo si esa lectura falla: valor tabulado de TNG100-1, m_DM = 7.5e6 Msun (Nelson+2019;
+# también §2.1 del paper). La concentración no depende de esta masa (sólo escala ρ).
+M_DM_MSUN_FALLBACK = 7.5e6
 
 # ── Último major merger (§3) ──────────────────────────────────────────────
 MAJOR_MERGER_RATIO = 1/5     # razón de masa estelar > 1/5
