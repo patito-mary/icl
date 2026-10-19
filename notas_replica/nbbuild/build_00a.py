@@ -55,23 +55,34 @@ md(r'''
 '''),
 code(r'''
 Header = il.groupcat.loadHeader(P.basePath, P.SNAP)
-CLAVES_GC = ['BoxSize', 'Redshift', 'Time', 'HubbleParam']
+print(f"Claves del Header del groupcat: {sorted(Header)}")
+CLAVES_GC = ['BoxSize', 'Redshift', 'Time']          # las que usa la réplica
 faltan_gc = [k for k in CLAVES_GC if k not in Header]
-chequeo(not faltan_gc, f"Header del groupcat trae {CLAVES_GC}", f"faltan {faltan_gc}; claves: {sorted(Header)}")
-print(f"  (MassTable en el Header del groupcat: {'MassTable' in Header} — la réplica no la usa de ahí)")
-chequeo(abs(Header['Redshift']) < 1e-6, f"z = {Header['Redshift']:.3g} en el snap {P.SNAP}", "revisa P.SNAP")
-chequeo(abs(Header['BoxSize'] - P.L_BOX) < 1, f"BoxSize = {Header['BoxSize']:.0f} ckpc/h", "¿es TNG100-1?")
-chequeo(abs(Header['HubbleParam'] - P.h) < 1e-4, f"h = {Header['HubbleParam']}", "revisa P.h")
+chequeo(not faltan_gc, f"Header del groupcat trae {CLAVES_GC}", f"faltan {faltan_gc}")
+if not faltan_gc:
+    chequeo(abs(Header['Redshift']) < 1e-6, f"z = {Header['Redshift']:.3g} en el snap {P.SNAP}", "revisa P.SNAP")
+    chequeo(abs(Header['BoxSize'] - P.L_BOX) < 1, f"BoxSize = {Header['BoxSize']:.0f} ckpc/h", "¿es TNG100-1?")
 '''),
 code(r'''
 HeaderSnap = F.snapshot_header(P.basePath, P.SNAP)
-CLAVES_SNAP = ['MassTable', 'NumPart_Total', 'NumPart_Total_HighWord']
+print(f"Claves del Header del snapshot: {sorted(HeaderSnap)}")
+CLAVES_SNAP = ['NumPart_Total', 'NumPart_Total_HighWord']
 faltan_sn = [k for k in CLAVES_SNAP if k not in HeaderSnap]
-chequeo(not faltan_sn, f"Header del snapshot trae {CLAVES_SNAP}", f"faltan {faltan_sn}; claves: {sorted(HeaderSnap)}")
-n_star_snap = F.n_stars_snapshot(HeaderSnap)
-m_dm = HeaderSnap['MassTable'][1] * P.UM
+chequeo(not faltan_sn, f"Header del snapshot trae {CLAVES_SNAP}", f"faltan {faltan_sn}")
+n_star_snap = F.n_stars_snapshot(HeaderSnap) if not faltan_sn else -1
 print(f"PartType4 en el snapshot = {n_star_snap:,}")
-chequeo(5e6 < m_dm < 1e7, f"m_DM = {m_dm:.3e} Msun (TNG100-1: 7.5e6)", "MassTable[1] inesperado")
+print(f"MassTable en el Header del snapshot: "
+      f"{np.asarray(HeaderSnap['MassTable']).tolist() if 'MassTable' in HeaderSnap else 'NO'}")
+'''),
+
+code(r'''
+# masa de la partícula DM (00, concentración NFW): MassTable[1] del snapshot o valor documentado
+try:
+    m_dm, fuente_m_dm = F.dm_particle_mass_msun(P.basePath, P.SNAP, P.UM, P.M_DM_INTERNAL_DOC)
+    chequeo(7.0e6 < m_dm < 8.0e6, f"m_DM = {m_dm:.4e} Msun  (fuente: {fuente_m_dm})",
+            "TNG100-1 documenta 0.000505574296436975 [1e10 Msun/h] = 7.46e6 Msun")
+except KeyError as e:
+    chequeo(False, "masa de la partícula DM", str(e))
 '''),
 
 md('## 3 · Muestra: corte Group_M_Crit200 ≥ 1e3 (1e10 M☉/h)'),

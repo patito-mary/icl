@@ -158,8 +158,8 @@ md(r'''
 '''),
 code(r'''
 # MassTable está en el Header del SNAPSHOT, no en el del groupcat (il.groupcat.loadHeader)
-m_dm = F.dm_particle_mass_msun(P.basePath, P.SNAP, P.UM, P.M_DM_MSUN_FALLBACK)   # Msun
-print(f"m_DM = {m_dm:.3e} Msun")
+m_dm, fuente_m_dm = F.dm_particle_mass_msun(P.basePath, P.SNAP, P.UM, P.M_DM_INTERNAL_DOC)   # Msun
+print(f"m_DM = {m_dm:.3e} Msun   (fuente: {fuente_m_dm})")
 
 concentration = np.full(n_cl, np.nan)
 r_s_kpc       = np.full(n_cl, np.nan)

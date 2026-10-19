@@ -29,7 +29,7 @@ N_CEN = [24000, 16000, 12000, 10000]
 N_SAT = 1500
 N_FUZZ = 800
 M_STAR = 1e-4                                         # 1e10 Msun/h por partícula
-M_DM_INT = 6e-4                                       # masa DM [1e10 Msun/h] (Header del snapshot)
+M_DM_INT = 0.000505574296436975                       # masa DM [1e10 Msun/h] (valor documentado TNG100-1)
 DYN_OFF = [0.05, 0.25, 0.55, 0.1]
 C_NFW = [5., 7., 9., 6.]
 MDIR = os.environ.get('MOCK_TNG_DIR', '/tmp/mock_tng')
@@ -162,8 +162,12 @@ def ensure_files():
         hd = f.create_group('Header')
         hd.attrs['NumPart_Total'] = np.array([0, 0, 0, 0, ntot, 0], dtype=np.uint32)
         hd.attrs['NumPart_Total_HighWord'] = np.zeros(6, dtype=np.uint32)
-        hd.attrs['MassTable'] = np.array([0, M_DM_INT, 0, 0, 0, 0])     # como en el snapshot real
-        hd.attrs['BoxSize'] = BOX; hd.attrs['Redshift'] = 0.0; hd.attrs['HubbleParam'] = H
+        # claves de la doc de TNG para el Header del snapshot; MOCK_SIN_MASSTABLE=1 simula que falta
+        if os.environ.get('MOCK_SIN_MASSTABLE') != '1':
+            hd.attrs['MassTable'] = np.array([0, M_DM_INT, 0, 0, 0, 0])
+        hd.attrs['NumPart_ThisFile'] = hd.attrs['NumPart_Total']
+        hd.attrs['BoxSize'] = BOX; hd.attrs['Redshift'] = 0.0; hd.attrs['Time'] = 1.0
+        hd.attrs['Omega0'] = 0.3089; hd.attrs['OmegaLambda'] = 0.6911; hd.attrs['NumFilesPerSnapshot'] = 1
     with h5py.File(sa, 'w') as f:
         ins = np.concatenate([base_stars(g)['insitu'][np.argsort(np.where(base_stars(g)['sub'] < 0, NSUB, base_stars(g)['sub']), kind='stable')] for g in range(NG)])
         ori = np.concatenate([base_stars(g)['origin'][np.argsort(np.where(base_stars(g)['sub'] < 0, NSUB, base_stars(g)['sub']), kind='stable')] for g in range(NG)])

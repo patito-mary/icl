@@ -108,3 +108,37 @@ Validar en 01:
 - `common.write_nb` ahora reutiliza los ids de celda si el número de celdas no cambia, para que los diffs queden limpios.
 
 Las demás lecturas de `il.groupcat.loadHeader` usan sólo BoxSize, Redshift y Time, que sí están en el Header del groupcat.
+
+## 2026-10-19 (b) · Verificación contra la documentación oficial de TNG
+
+Lo que dice la documentación:
+- Doc `data/docs/specifications`, Header del snapshot: BoxSize, `MassTable` ("Masses of particle types which have a constant mass (only DM)"), NumPart_ThisFile, NumPart_Total, NumPart_Total_HighWord, Omega0, OmegaLambda, Redshift, Time, NumFilesPerSnapshot.
+- Doc, Header de fof_subhalo_tab: Ngroups_*, Nsubgroups_*, NumFiles, Time, Redshift. Sin MassTable.
+- Doc, PartType1: no tiene `Masses`.
+- Página `data/downloads/TNG100-1/`: "dark matter particle mass [10^10 msun/h] 0.000505574296436975" (≈ 7.46e6 Msun); box 75000 ckpc/h; h = 0.6774.
+
+Contraste con los archivos reales:
+- La tabla de la doc para el Header del groupcat NO lista BoxSize, pero los outputs viejos de Mary en el Lab muestran que `il.groupcat.loadHeader(...)['BoxSize']` = 75000. La tabla de la doc está incompleta en ese punto.
+- HubbleParam no aparece en ninguna de las dos tablas: 00a ya no lo exige.
+
+Conclusión: la corrección anterior era correcta en el diagnóstico (MassTable no está en el Header del groupcat; está en el del snapshot).
+
+Cambios:
+- `dm_particle_mass_msun` ahora devuelve `(m, fuente)`: usa MassTable[1] del snapshot si es > 0; si no, el valor DOCUMENTADO `P.M_DM_INTERNAL_DOC` (ya no se trata como respaldo genérico, que antes valía 7.5e6), declarando la fuente; avisa si ambos difieren.
+- 00a imprime las claves de ambos Headers, el MassTable del snapshot y la fuente usada para m_DM.
+- El mock es fiel a la doc. La variante `MOCK_SIN_MASSTABLE=1` prueba el camino del valor documentado.
+
+## 2026-10-19 (c) · Primera corrida de 00 en el Lab (respaldo con outputs: /Users/mvs/Documents/respaldo_00_catalogo_corrida_lab_20261019.ipynb, fuera del repo)
+
+Resultados de esa corrida:
+- N = 127 halos, 10 sobre 1e14 Msun/h, log M200c entre 13.00 y 14.41: igual que el paper.
+- R200c entre 517 y 1529 kpc; log M*200 entre 11.34 y 12.91.
+- Estado dinámico: 108 relajados, 19 intermedios, **0 perturbados**; mediana de D/R200 = 0.052.
+  - El paper sí tiene cúmulos perturbados: en §5.1, 9 de 27 en la selección alta y 4 de 27 en la baja, entre otros.
+  - Sospecha: el SUPUESTO de CM del gas dentro de R200 diluye los offsets. Probar el gas de todo el FoF.
+- Falló en la celda de m_DM con `AttributeError: module 'icl_funcs' has no attribute 'dm_particle_mass_msun'`, aunque HEAD (60e82b1) sí tiene esa función. Probablemente el kernel tenía importado un `icl_funcs` viejo: hay que reiniciar el kernel tras cada pull.
+
+Corrección mínima de 00:
+- Sólo cambió la celda de m_DM a la v2 (diff contra HEAD: 2 líneas).
+- Se limpiaron outputs y execution_count; la metadata quedó igual a HEAD; se conservaron los ids.
+- Mary no había cambiado ningún código.
